@@ -1,29 +1,96 @@
 package main
 
 import (
+	"fmt"
 	"image"
 	"log"
 	"os"
 	"time"
 
 	"gioui.org/app"
+	"gioui.org/io/system"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
-	"github.com/joscherrer/dofus-manager/assets"
 	"github.com/joscherrer/dofus-manager/internal/ui"
-	"golang.org/x/exp/shiny/materialdesign/icons"
+	"github.com/joscherrer/dofus-manager/internal/win32"
 
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+
+	"golang.design/x/hotkey"
 )
 
-var windowList []Window
+var (
+	windowList  []win32.Window
+	windowList2 []ClientRow
+)
+var windowMap = make(map[int32]ClientRow)
+
+type ClientRow struct {
+	w          *win32.Window
+	label      *widget.Clickable
+	dragHandle *widget.Clickable
+}
+
+func (c *ClientRow) SetWindow(w *win32.Window) {
+	c.w = w
+}
 
 func WatchWindows(w *app.Window) {
 	for {
-		windowList, _ = GetDofusWindows()
+		_windowList, _ := win32.GetDofusWindows()
+		_windowMap := make(map[int32]ClientRow)
+		for _, w := range _windowList {
+			_windowMap[w.Pid()] = ClientRow{
+				w:          &w,
+				label:      new(widget.Clickable),
+				dragHandle: new(widget.Clickable),
+			}
+		}
+
+		dead := make([]int32, 0)
+
+		// Check for dead windows
+		for pid := range windowMap {
+			if _, ok := _windowMap[pid]; !ok {
+				dead = append(dead, pid)
+			}
+		}
+
+		// Remove dead windows from windowMap
+		for _, pid := range dead {
+			delete(windowMap, pid)
+		}
+
+		// Pack windowList, keeping only alive windows
+		newWindowList := make([]win32.Window, 0)
+		for _, w := range windowList {
+			if _, ok := _windowMap[w.Pid()]; ok {
+				newWindowList = append(newWindowList, w)
+			}
+		}
+		newWindowList2 := make([]ClientRow, 0)
+		for _, w := range windowList2 {
+			if _, ok := _windowMap[w.w.Pid()]; ok {
+				newWindowList2 = append(newWindowList2, w)
+			}
+		}
+
+		// Add new windows to windowMap and windowList
+		for pid, row := range _windowMap {
+			if _, ok := windowMap[pid]; ok {
+				continue
+			}
+			windowMap[pid] = row
+			newWindowList = append(newWindowList, *row.w)
+			newWindowList2 = append(newWindowList2, row)
+		}
+
+		windowList = newWindowList
+		windowList2 = newWindowList2
+
 		w.Invalidate()
 		time.Sleep(1 * time.Second)
 	}
@@ -46,18 +113,59 @@ func SetWindowBackground(gtx *layout.Context, theme *material.Theme) {
 func BuildClients(theme *material.Theme, btnList []widget.Clickable) (children []layout.FlexChild) {
 	for i, w := range windowList {
 		c := GameClient{w: &w}
-		name, err := c.w.GetWindowText()
+		name, err := c.GetCharacterName()
 		if err != nil {
 			continue
 		}
 
-		// btn := ui.NewButton(theme, &btnList[i], name)
-		btn := ui.NewBtn(theme, &btnList[i], name)
-		btn = ui.AddMargin(btn, 0, 10, 10, 10)
+		_row := ui.ClientRowSyle{
+			Name:       name,
+			DragHandle: &btnList[i*2],
+			Label:      &btnList[i*2+1],
+			Theme:      theme,
+		}
 
-		children = append(children, layout.Rigid(btn))
+		children = append(children, layout.Rigid(_row.Layout))
+
 	}
+
 	return
+}
+
+func BuildClients2(theme *material.Theme) (children []layout.FlexChild) {
+	for _, row := range windowList2 {
+		c := GameClient{w: row.w}
+		name, err := c.GetCharacterName()
+		if err != nil {
+			continue
+		}
+
+		_row := ui.ClientRowSyle{
+			Name:       name,
+			DragHandle: row.dragHandle,
+			Label:      row.label,
+			Theme:      theme,
+		}
+
+		children = append(children, layout.Rigid(_row.Layout))
+
+	}
+
+	return
+}
+
+func reghk() {
+	// Register a desired hotkey.
+	hk := hotkey.New([]hotkey.Modifier{hotkey.ModCtrl, hotkey.ModShift}, hotkey.KeyS)
+	if err := hk.Register(); err != nil {
+		panic("hotkey registration failed")
+	}
+
+	// Unregister the hotkey when keydown event is triggered
+	for range hk.Keydown() {
+		hk.Unregister()
+		fmt.Println("Hotkey triggered")
+	}
 }
 
 func main() {
@@ -74,7 +182,9 @@ func main() {
 }
 
 func run(window *app.Window) error {
+	go reghk()
 	window.Option(app.Title("Dofus Manager"))
+	window.Option(app.Decorated(false))
 	theme := material.NewTheme()
 	theme.Palette = defaultPalette
 
@@ -82,7 +192,10 @@ func run(window *app.Window) error {
 	var settings widget.Clickable
 	var prev widget.Clickable
 	var next widget.Clickable
-	btnList := make([]widget.Clickable, 10)
+	actions := system.ActionClose | system.ActionMaximize | system.ActionMinimize
+	decorations := material.Decorations(theme, &widget.Decorations{}, actions, "Dofus Manager")
+
+	// btnList := make([]widget.Clickable, 10)
 
 	for {
 		switch e := window.Event().(type) {
@@ -94,40 +207,46 @@ func run(window *app.Window) error {
 
 			SetWindowBackground(&gtx, theme)
 
+			window.Perform(decorations.Decorations.Update(gtx))
+			decorations.Layout(gtx)
+
+			if prev.Clicked(gtx) {
+				fmt.Println("Clicked")
+			}
+
 			children := make([]layout.FlexChild, 0)
+			// children = BuildClients(theme, btnList)
+			children = BuildClients2(theme)
+			for _, row := range windowList2 {
+				if row.label.Clicked(gtx) {
+					fmt.Printf("Bring %s to front\n", row.w.Title())
+					go row.w.UIABringToFront()
+				}
+			}
+			// for i := range btnList {
+			// 	widx := (i - 1) / 2
+			// 	if widx < 0 {
+			// 		widx = 0
+			// 	}
+			// 	if btnList[i].Clicked(gtx) && widx < len(windowList) {
+			// 		fmt.Printf("Clicked button %d\n", i)
+			// 		fmt.Printf("Bring %s to front\n", windowList[widx].Title())
+			// 		go windowList[widx].UIABringToFront()
+			// 		// go windowList[widx].BringToFront()
+			// 	}
+			// }
 
-			if windowList != nil {
-				children = BuildClients(theme, btnList)
+			menu := ui.MenuStyle{
+				Theme:    theme,
+				Prev:     &prev,
+				Next:     &next,
+				Settings: &settings,
 			}
 
-			settingsBtn := ui.NewBtn(theme, &settings, "Settings")
-			settingsBtn = ui.AddMargin(settingsBtn, 0, 10, 10, 10)
-
-			prevIcon, _ := widget.NewIcon(icons.NavigationArrowBack)
-			prevBtn := ui.NewIconBtn(theme, &prev, prevIcon, "prev")
-			prevBtn = ui.AddMargin(prevBtn, 0, 10, 0, 10)
-
-			nextIcon, _ := widget.NewIcon(icons.NavigationArrowForward)
-			nextBtn := ui.NewIconBtn(theme, &next, nextIcon, "next")
-			nextBtn = ui.AddMargin(nextBtn, 0, 10, 0, 10)
-
-			testBtn := ui.NewAssetBtn(theme, &next, &assets.Image_arrow_up, "up")
-			testBtn = ui.AddMargin(testBtn, 0, 10, 0, 10)
-
-			hFlex := layout.Flex{
-				Axis:    layout.Horizontal,
-				Spacing: layout.SpaceStart,
-			}
-
-			tmenu := layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return hFlex.Layout(gtx,
-					layout.Flexed(1, settingsBtn),
-					layout.Rigid(prevBtn),
-					layout.Rigid(nextBtn),
-					layout.Rigid(testBtn),
-				)
+			menuChild := layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return menu.Layout(gtx)
 			})
-			children = append(children, tmenu)
+			children = append(children, menuChild)
 
 			flex := layout.Flex{
 				Axis:    layout.Vertical,

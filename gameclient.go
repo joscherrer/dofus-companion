@@ -1,21 +1,17 @@
 package main
 
 import (
-	"fmt"
 	"strings"
+
+	"github.com/joscherrer/dofus-manager/internal/win32"
 )
 
 type GameClient struct {
-	w *Window
+	w *win32.Window
 }
 
 func (c *GameClient) GetCharacterName() (s string, err error) {
 	winTitle, _ := c.w.GetWindowText()
-	before, after, found := strings.Cut(winTitle, " - ")
-	if found && strings.Contains(after, "Dofus") {
-		s = before
-	} else {
-		err = fmt.Errorf("Could not find character name in window title")
-	}
+	s, _, _ = strings.Cut(winTitle, " - ")
 	return
 }

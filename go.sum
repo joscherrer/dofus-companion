@@ -41,6 +41,10 @@ github.com/tklauser/numcpus v0.6.1/go.mod h1:1XfjsgE2zo8GVw7POkMbHENHzVg3GzmoZ9f
 github.com/yuin/goldmark v1.4.13/go.mod h1:6yULJ656Px+3vBD8DxQVa3kxgyrAnzto9xy5taEt/CY=
 github.com/yusufpapurcu/wmi v1.2.4 h1:zFUKzehAFReQwLys1b/iSMl+JQGSCSjtVqQn9bBrPo0=
 github.com/yusufpapurcu/wmi v1.2.4/go.mod h1:SBZ9tNy3G9/m5Oi98Zks0QjeHVDvuK0qfxQmPyzfmi0=
+golang.design/x/hotkey v0.4.1 h1:zLP/2Pztl4WjyxURdW84GoZ5LUrr6hr69CzJFJ5U1go=
+golang.design/x/hotkey v0.4.1/go.mod h1:M8SGcwFYHnKRa83FpTFQoZvPO5vVT+kWPztFqTQKmXA=
+golang.design/x/mainthread v0.3.0 h1:UwFus0lcPodNpMOGoQMe87jSFwbSsEY//CA7yVmu4j8=
+golang.design/x/mainthread v0.3.0/go.mod h1:vYX7cF2b3pTJMGM/hc13NmN6kblKnf4/IyvHeu259L0=
 golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=
 golang.org/x/crypto v0.0.0-20210921155107-089bfa567519/go.mod h1:GvvjBRRGRdwPK5ydBHafDWAxML/pGHZbMvKqRZ5+Abc=
 golang.org/x/exp v0.0.0-20240707233637-46b078467d37 h1:uLDX+AfeFCct3a2C7uIWBKMJIR3CJMhcgfrUAqjRK6w=

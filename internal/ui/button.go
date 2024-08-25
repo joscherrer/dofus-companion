@@ -74,6 +74,7 @@ type BtnStyle struct {
 	Inset        layout.Inset
 	Button       *widget.Clickable
 	shaper       *text.Shaper
+	KeepState    bool
 }
 
 type SvgBtnStyle struct{}
@@ -90,7 +91,7 @@ func (b BtnLayoutStyle) Layout(gtx layout.Context, w layout.Widget) layout.Dimen
 				switch {
 				case !gtx.Enabled():
 					background = f32color.Disabled(b.Background)
-				case b.Button.Hovered():
+				case b.Button.Hovered() || (b.KeepState && gtx.Focused(b.Button)):
 					background = f32color.Hovered(b.Background)
 				}
 				paint.Fill(gtx.Ops, background)
@@ -113,6 +114,7 @@ func (b BtnStyle) Layout(gtx layout.Context) layout.Dimensions {
 		Background:   b.Background,
 		CornerRadius: unit.Dp(4),
 		Button:       b.Button,
+		KeepState:    b.KeepState,
 	}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return b.Inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			colMacro := op.Record(gtx.Ops)
@@ -151,7 +153,7 @@ func (b AssetBtnStyle) Layout(gtx layout.Context) layout.Dimensions {
 	})
 }
 
-func Btn(th *material.Theme, button *widget.Clickable, text string) BtnStyle {
+func Btn(th *material.Theme, button *widget.Clickable, text string, keepState bool) BtnStyle {
 	b := BtnStyle{
 		Text:         text,
 		Color:        th.Palette.ContrastFg,
@@ -162,8 +164,9 @@ func Btn(th *material.Theme, button *widget.Clickable, text string) BtnStyle {
 			Top: 10, Bottom: 10,
 			Left: 12, Right: 12,
 		},
-		Button: button,
-		shaper: th.Shaper,
+		Button:    button,
+		shaper:    th.Shaper,
+		KeepState: keepState,
 	}
 	b.Font.Typeface = th.Face
 	return b
@@ -193,9 +196,9 @@ func AssetBtn(th *material.Theme, button *widget.Clickable, asset *Asset, descri
 	}
 }
 
-func NewBtn(theme *material.Theme, wc *widget.Clickable, text string) layout.Widget {
+func NewBtn(theme *material.Theme, wc *widget.Clickable, text string, keepState bool) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
-		return Btn(theme, wc, text).Layout(gtx)
+		return Btn(theme, wc, text, keepState).Layout(gtx)
 	}
 }
 
