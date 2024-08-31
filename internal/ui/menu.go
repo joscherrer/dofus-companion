@@ -9,9 +9,9 @@ import (
 
 type MenuStyle struct {
 	Theme    *material.Theme
-	Prev     *widget.Clickable
-	Next     *widget.Clickable
-	Settings *widget.Clickable
+	Prev     *Clickable
+	Next     *Clickable
+	Settings *Clickable
 }
 
 func (m *MenuStyle) Layout(gtx layout.Context) layout.Dimensions {

@@ -3,11 +3,11 @@ package main
 import (
 	"strings"
 
-	"github.com/joscherrer/dofus-manager/internal/win32"
+	"github.com/joscherrer/dofus-manager/internal/window"
 )
 
 type GameClient struct {
-	w *win32.Window
+	w *window.Window
 }
 
 func (c *GameClient) GetCharacterName() (s string, err error) {

@@ -25,13 +25,21 @@ type ImgBtnStyle struct {
 	Image       *image.Image
 	Size        unit.Dp
 	Inset       layout.Inset
-	Button      *widget.Clickable
+	Button      *Clickable
 	Description string
 }
 
-type (
-	IconBtnStyle material.IconButtonStyle
-)
+type IconBtnStyle struct {
+	Background color.NRGBA
+	// Color is the icon color.
+	Color color.NRGBA
+	Icon  *widget.Icon
+	// Size is the icon size.
+	Size        unit.Dp
+	Inset       layout.Inset
+	Button      *Clickable
+	Description string
+}
 
 type AssetBtnStyle struct {
 	Background color.NRGBA
@@ -41,7 +49,7 @@ type AssetBtnStyle struct {
 	// Size is the icon size.
 	Size        unit.Dp
 	Inset       layout.Inset
-	Button      *widget.Clickable
+	Button      *Clickable
 	Description string
 }
 
@@ -58,7 +66,7 @@ type Asset = struct {
 type BtnLayoutStyle struct {
 	Background   color.NRGBA
 	CornerRadius unit.Dp
-	Button       *widget.Clickable
+	Button       *Clickable
 	KeepState    bool
 	Inset        layout.Inset
 }
@@ -72,7 +80,7 @@ type BtnStyle struct {
 	Background   color.NRGBA
 	CornerRadius unit.Dp
 	Inset        layout.Inset
-	Button       *widget.Clickable
+	Button       *Clickable
 	shaper       *text.Shaper
 	KeepState    bool
 }
@@ -91,7 +99,7 @@ func (b BtnLayoutStyle) Layout(gtx layout.Context, w layout.Widget) layout.Dimen
 				switch {
 				case !gtx.Enabled():
 					background = f32color.Disabled(b.Background)
-				case b.Button.Hovered() || (b.KeepState && gtx.Focused(b.Button)):
+				case b.Button.Hovered() || (b.KeepState && gtx.Focused(b.Button)) || b.Button.Active:
 					background = f32color.Hovered(b.Background)
 				}
 				paint.Fill(gtx.Ops, background)
@@ -153,7 +161,7 @@ func (b AssetBtnStyle) Layout(gtx layout.Context) layout.Dimensions {
 	})
 }
 
-func Btn(th *material.Theme, button *widget.Clickable, text string, keepState bool) BtnStyle {
+func Btn(th *material.Theme, button *Clickable, text string, keepState bool) BtnStyle {
 	b := BtnStyle{
 		Text:         text,
 		Color:        th.Palette.ContrastFg,
@@ -172,7 +180,7 @@ func Btn(th *material.Theme, button *widget.Clickable, text string, keepState bo
 	return b
 }
 
-func IconBtn(th *material.Theme, button *widget.Clickable, icon *widget.Icon, description string) IconBtnStyle {
+func IconBtn(th *material.Theme, button *Clickable, icon *widget.Icon, description string) IconBtnStyle {
 	return IconBtnStyle{
 		Background:  th.Palette.ContrastBg,
 		Color:       th.Palette.ContrastFg,
@@ -184,7 +192,7 @@ func IconBtn(th *material.Theme, button *widget.Clickable, icon *widget.Icon, de
 	}
 }
 
-func AssetBtn(th *material.Theme, button *widget.Clickable, asset *Asset, description string) AssetBtnStyle {
+func AssetBtn(th *material.Theme, button *Clickable, asset *Asset, description string) AssetBtnStyle {
 	return AssetBtnStyle{
 		Background:  th.Palette.ContrastBg,
 		Color:       th.Palette.ContrastFg,
@@ -196,31 +204,31 @@ func AssetBtn(th *material.Theme, button *widget.Clickable, asset *Asset, descri
 	}
 }
 
-func NewBtn(theme *material.Theme, wc *widget.Clickable, text string, keepState bool) layout.Widget {
+func NewBtn(theme *material.Theme, wc *Clickable, text string, keepState bool) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
 		return Btn(theme, wc, text, keepState).Layout(gtx)
 	}
 }
 
-func NewButton(theme *material.Theme, wc *widget.Clickable, text string) layout.Widget {
-	return func(gtx layout.Context) layout.Dimensions {
-		return material.Button(theme, wc, text).Layout(gtx)
-	}
-}
+// func NewButton(theme *material.Theme, wc *Clickable, text string) layout.Widget {
+// 	return func(gtx layout.Context) layout.Dimensions {
+// 		return material.Button(theme, wc, text).Layout(gtx)
+// 	}
+// }
 
-func NewIconBtn(theme *material.Theme, wc *widget.Clickable, icon *widget.Icon, description string) layout.Widget {
+func NewIconBtn(theme *material.Theme, wc *Clickable, icon *widget.Icon, description string) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
 		return IconBtn(theme, wc, icon, description).Layout(gtx)
 	}
 }
 
-func NewAssetBtn(theme *material.Theme, wc *widget.Clickable, asset *Asset, description string) layout.Widget {
+func NewAssetBtn(theme *material.Theme, wc *Clickable, asset *Asset, description string) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
 		return AssetBtn(theme, wc, asset, description).Layout(gtx)
 	}
 }
 
-// func StlIconButton(th *material.Theme, button *widget.Clickable, icon *widget.Icon, description string) IconBtnStyle {
+// func StlIconButton(th *material.Theme, button *Clickable, icon *widget.Icon, description string) IconBtnStyle {
 // 	return IconBtnStyle{
 // 		Background:  th.Palette.ContrastBg,
 // 		Color:       th.Palette.ContrastFg,
@@ -232,7 +240,7 @@ func NewAssetBtn(theme *material.Theme, wc *widget.Clickable, asset *Asset, desc
 // 	}
 // }
 
-// func NewImageButton(theme *material.Theme, wc *widget.Clickable, img *image.Image, description string) layout.Widget {
+// func NewImageButton(theme *material.Theme, wc *Clickable, img *image.Image, description string) layout.Widget {
 // 	return func(gtx layout.Context) layout.Dimensions {
 // 		return ImageButton(theme, wc, img, description).Layout(gtx)
 // 	}
@@ -267,7 +275,7 @@ func NewAssetBtn(theme *material.Theme, wc *widget.Clickable, asset *Asset, desc
 // 	})
 // }
 
-// func ImageButton(th *material.Theme, button *widget.Clickable, image *image.Image, description string) ImageButtonStyle {
+// func ImageButton(th *material.Theme, button *Clickable, image *image.Image, description string) ImageButtonStyle {
 // 	return ImageButtonStyle{
 // 		Background:  th.Palette.ContrastBg,
 // 		Color:       th.Palette.ContrastFg,

@@ -1,14 +1,14 @@
 package ui
 
-import "gioui.org/layout"
+import (
+	"gioui.org/layout"
+)
 
-type ClientList struct {
-	rows []ClientRowSyle
-}
+type ClientList struct{}
 
-func (c *ClientList) Layout(gtx layout.Context) layout.Dimensions {
-	children := make([]layout.FlexChild, len(c.rows))
-	for i, row := range c.rows {
+func (c *ClientList) Layout(gtx layout.Context, rows ...*ClientRowStyle) layout.Dimensions {
+	children := make([]layout.FlexChild, len(rows))
+	for i, row := range rows {
 		children[i] = layout.Rigid(row.Layout)
 	}
 

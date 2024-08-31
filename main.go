@@ -3,18 +3,24 @@ package main
 import (
 	"fmt"
 	"image"
+	"image/color"
+	"io"
 	"log"
 	"os"
+	"strings"
+	"sync"
 	"time"
 
 	"gioui.org/app"
+	"gioui.org/io/event"
 	"gioui.org/io/system"
+	"gioui.org/io/transfer"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"github.com/joscherrer/dofus-manager/internal/ui"
-	"github.com/joscherrer/dofus-manager/internal/win32"
+	"github.com/joscherrer/dofus-manager/internal/window"
 
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -23,30 +29,50 @@ import (
 )
 
 var (
-	windowList  []win32.Window
-	windowList2 []ClientRow
+	clientList      = &ui.ClientList{}
+	windowList      []*ClientRow
+	windowListMutex = sync.Mutex{}
+	windowMap       = make(map[int32]*ClientRow)
+	focusIdx        = 0
 )
-var windowMap = make(map[int32]ClientRow)
 
 type ClientRow struct {
-	w          *win32.Window
-	label      *widget.Clickable
-	dragHandle *widget.Clickable
+	w                *window.Window
+	Label            *ui.Clickable
+	DragHandle       *ui.Clickable
+	Draggable        *ui.Draggable
+	currentLabelText string
 }
 
-func (c *ClientRow) SetWindow(w *win32.Window) {
+func (c *ClientRow) SetWindow(w *window.Window) {
 	c.w = w
+}
+
+func (c *ClientRow) LabelText() (s string, err error) {
+	winTitle, _ := c.w.GetWindowText()
+	s, _, _ = strings.Cut(winTitle, " - ")
+	c.currentLabelText = s
+	return
+}
+
+func (c *ClientRow) LabelTextChanged() bool {
+	curr := strings.Clone(c.currentLabelText)
+	next, err := c.LabelText()
+	return err != nil || curr != next
 }
 
 func WatchWindows(w *app.Window) {
 	for {
-		_windowList, _ := win32.GetDofusWindows()
-		_windowMap := make(map[int32]ClientRow)
+		windowListMutex.Lock()
+		changed := false
+		_windowList, _ := window.GetDofusWindows()
+		_windowMap := make(map[int32]*ClientRow)
 		for _, w := range _windowList {
-			_windowMap[w.Pid()] = ClientRow{
+			_windowMap[w.Pid()] = &ClientRow{
 				w:          &w,
-				label:      new(widget.Clickable),
-				dragHandle: new(widget.Clickable),
+				Label:      &ui.Clickable{},
+				DragHandle: &ui.Clickable{},
+				Draggable:  &ui.Draggable{Type: "ClientRow"},
 			}
 		}
 
@@ -59,39 +85,44 @@ func WatchWindows(w *app.Window) {
 			}
 		}
 
+		// Flag windowList as changed
+		if len(dead) > 0 {
+			changed = true
+		}
+
 		// Remove dead windows from windowMap
 		for _, pid := range dead {
 			delete(windowMap, pid)
 		}
 
 		// Pack windowList, keeping only alive windows
-		newWindowList := make([]win32.Window, 0)
+		newWindowList := make([]*ClientRow, 0)
 		for _, w := range windowList {
-			if _, ok := _windowMap[w.Pid()]; ok {
-				newWindowList = append(newWindowList, w)
-			}
-		}
-		newWindowList2 := make([]ClientRow, 0)
-		for _, w := range windowList2 {
 			if _, ok := _windowMap[w.w.Pid()]; ok {
-				newWindowList2 = append(newWindowList2, w)
+				newWindowList = append(newWindowList, w)
 			}
 		}
 
 		// Add new windows to windowMap and windowList
 		for pid, row := range _windowMap {
 			if _, ok := windowMap[pid]; ok {
+				// redraw if one of the windows has changed its title
+				changed = changed || windowMap[pid].LabelTextChanged()
 				continue
 			}
 			windowMap[pid] = row
-			newWindowList = append(newWindowList, *row.w)
-			newWindowList2 = append(newWindowList2, row)
+			newWindowList = append(newWindowList, row)
+			changed = true
 		}
 
-		windowList = newWindowList
-		windowList2 = newWindowList2
+		// Trigger update only if there was any change
+		if changed {
+			fmt.Println("Updating window list")
+			windowList = newWindowList
+			w.Invalidate()
+		}
 
-		w.Invalidate()
+		windowListMutex.Unlock()
 		time.Sleep(1 * time.Second)
 	}
 }
@@ -110,61 +141,67 @@ func SetWindowBackground(gtx *layout.Context, theme *material.Theme) {
 	background.Add(gtx.Ops)
 }
 
-func BuildClients(theme *material.Theme, btnList []widget.Clickable) (children []layout.FlexChild) {
-	for i, w := range windowList {
-		c := GameClient{w: &w}
-		name, err := c.GetCharacterName()
+func MakeRows(theme *material.Theme) (rows []*ui.ClientRowStyle) {
+	for _, row := range windowList {
+		// fmt.Println(i, "b: ", row)
+		name, err := row.LabelText()
 		if err != nil {
 			continue
 		}
-
-		_row := ui.ClientRowSyle{
+		_r := &ui.ClientRowStyle{
 			Name:       name,
-			DragHandle: &btnList[i*2],
-			Label:      &btnList[i*2+1],
+			DragHandle: row.DragHandle,
+			Label:      row.Label,
+			Draggable:  (*row).Draggable,
 			Theme:      theme,
 		}
-
-		children = append(children, layout.Rigid(_row.Layout))
-
+		rows = append(rows, _r)
+		// fmt.Println(i, "a: ", _r)
 	}
-
 	return
 }
 
-func BuildClients2(theme *material.Theme) (children []layout.FlexChild) {
-	for _, row := range windowList2 {
-		c := GameClient{w: row.w}
-		name, err := c.GetCharacterName()
-		if err != nil {
-			continue
-		}
-
-		_row := ui.ClientRowSyle{
-			Name:       name,
-			DragHandle: row.dragHandle,
-			Label:      row.label,
-			Theme:      theme,
-		}
-
-		children = append(children, layout.Rigid(_row.Layout))
-
+func focusNext(w *app.Window) {
+	windowList[focusIdx].Label.Active = false
+	focusIdx++
+	if focusIdx == len(windowList) {
+		focusIdx = 0
 	}
-
-	return
+	windowList[focusIdx].w.UIABringToFront()
+	windowList[focusIdx].Label.Active = true
+	w.Invalidate()
 }
 
-func reghk() {
-	// Register a desired hotkey.
-	hk := hotkey.New([]hotkey.Modifier{hotkey.ModCtrl, hotkey.ModShift}, hotkey.KeyS)
-	if err := hk.Register(); err != nil {
+func focusPrev(w *app.Window) {
+	windowList[focusIdx].Label.Active = false
+	focusIdx--
+	if focusIdx < 0 {
+		focusIdx = len(windowList) - 1
+	}
+	windowList[focusIdx].w.UIABringToFront()
+	windowList[focusIdx].Label.Active = true
+	w.Invalidate()
+}
+
+func nextHk(w *app.Window) {
+	next := hotkey.New([]hotkey.Modifier{}, hotkey.KeyF3)
+	if err := next.Register(); err != nil {
 		panic("hotkey registration failed")
 	}
 
-	// Unregister the hotkey when keydown event is triggered
-	for range hk.Keydown() {
-		hk.Unregister()
-		fmt.Println("Hotkey triggered")
+	for range next.Keydown() {
+		focusNext(w)
+	}
+}
+
+func prevHk(w *app.Window) {
+	prev := hotkey.New([]hotkey.Modifier{}, hotkey.KeyF2)
+	if err := prev.Register(); err != nil {
+		panic("hotkey registration failed")
+	}
+
+	for range prev.Keydown() {
+		focusPrev(w)
 	}
 }
 
@@ -181,21 +218,30 @@ func main() {
 	app.Main()
 }
 
+func ColorBox(gtx layout.Context, size image.Point, color color.NRGBA) layout.Dimensions {
+	defer clip.Rect{Max: size}.Push(gtx.Ops).Pop()
+	paint.ColorOp{Color: color}.Add(gtx.Ops)
+	paint.PaintOp{}.Add(gtx.Ops)
+	event.Op(gtx.Ops, &drop)
+	return layout.Dimensions{Size: size}
+}
+
+var drop int
+
 func run(window *app.Window) error {
-	go reghk()
+	go nextHk(window)
+	go prevHk(window)
 	window.Option(app.Title("Dofus Manager"))
 	window.Option(app.Decorated(false))
 	theme := material.NewTheme()
 	theme.Palette = defaultPalette
 
 	var ops op.Ops
-	var settings widget.Clickable
-	var prev widget.Clickable
-	var next widget.Clickable
+	var settings ui.Clickable
+	var prev ui.Clickable
+	var next ui.Clickable
 	actions := system.ActionClose | system.ActionMaximize | system.ActionMinimize
 	decorations := material.Decorations(theme, &widget.Decorations{}, actions, "Dofus Manager")
-
-	// btnList := make([]widget.Clickable, 10)
 
 	for {
 		switch e := window.Event().(type) {
@@ -208,33 +254,46 @@ func run(window *app.Window) error {
 			SetWindowBackground(&gtx, theme)
 
 			window.Perform(decorations.Decorations.Update(gtx))
-			decorations.Layout(gtx)
+			deco := func(gtx layout.Context) layout.Dimensions {
+				return decorations.Layout(gtx)
+			}
 
 			if prev.Clicked(gtx) {
 				fmt.Println("Clicked")
 			}
 
 			children := make([]layout.FlexChild, 0)
-			// children = BuildClients(theme, btnList)
-			children = BuildClients2(theme)
-			for _, row := range windowList2 {
-				if row.label.Clicked(gtx) {
+			children = append(children, layout.Rigid(deco))
+			children = append(children, layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				size := gtx.Constraints.Constrain(image.Point{})
+				rect := clip.Rect{Max: size}.Push(gtx.Ops)
+				event.Op(gtx.Ops, &drop)
+				rect.Pop()
+				return layout.Dimensions{Size: size}
+			}))
+			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return clientList.Layout(gtx, MakeRows(theme)...)
+			}))
+
+			for i, row := range windowList {
+				if row.Label.Clicked(gtx) {
 					fmt.Printf("Bring %s to front\n", row.w.Title())
-					go row.w.UIABringToFront()
+					go func() {
+						windowList[focusIdx].Label.Active = false
+						row.w.UIABringToFront()
+						row.Label.Active = true
+						focusIdx = i
+					}()
 				}
 			}
-			// for i := range btnList {
-			// 	widx := (i - 1) / 2
-			// 	if widx < 0 {
-			// 		widx = 0
-			// 	}
-			// 	if btnList[i].Clicked(gtx) && widx < len(windowList) {
-			// 		fmt.Printf("Clicked button %d\n", i)
-			// 		fmt.Printf("Bring %s to front\n", windowList[widx].Title())
-			// 		go windowList[widx].UIABringToFront()
-			// 		// go windowList[widx].BringToFront()
-			// 	}
-			// }
+
+			if next.Clicked(gtx) {
+				focusNext(window)
+			}
+
+			if prev.Clicked(gtx) {
+				focusPrev(window)
+			}
 
 			menu := ui.MenuStyle{
 				Theme:    theme,
@@ -255,6 +314,19 @@ func run(window *app.Window) error {
 
 			flex.Layout(gtx, children...)
 
+			for {
+				ev, ok := gtx.Event(transfer.TargetFilter{Target: &drop, Type: "ClientRow"})
+				if !ok {
+					break
+				}
+				switch e := ev.(type) {
+				case transfer.DataEvent:
+					data := e.Open()
+					defer data.Close()
+					content, _ := io.ReadAll(data)
+					fmt.Println(string(content))
+				}
+			}
 			// Pass the drawing operations to the GPU.
 			e.Frame(gtx.Ops)
 		}

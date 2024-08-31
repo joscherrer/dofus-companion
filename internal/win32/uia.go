@@ -204,11 +204,11 @@ func NewUIAutomation() (*IUIAutomation, error) {
 //	@param hwnd
 //	@return el
 //	@return err
-func (auto *IUIAutomation) ElementFromHandle(hwnd windows.HWND) (el *IUIAutomationElement, err error) {
+func (auto *IUIAutomation) ElementFromHandle(hwnd windows.Handle) (el *IUIAutomationElement, err error) {
 	return elementFromHandle(auto, hwnd)
 }
 
-func elementFromHandle(auto *IUIAutomation, hwnd windows.HWND) (el *IUIAutomationElement, err error) {
+func elementFromHandle(auto *IUIAutomation, hwnd windows.Handle) (el *IUIAutomationElement, err error) {
 	hr, _, _ := syscall.SyscallN(auto.VTable().ElementFromHandle, uintptr(unsafe.Pointer(auto)),
 		uintptr(hwnd), uintptr(unsafe.Pointer(&el)))
 	if hr != 0 {
