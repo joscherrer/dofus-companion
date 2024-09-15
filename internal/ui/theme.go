@@ -1,4 +1,4 @@
-package main
+package ui
 
 import (
 	"image/color"
@@ -14,9 +14,9 @@ func rgb(c uint32) color.NRGBA {
 	return argb(0xff000000 | c)
 }
 
-var defaultPalette = material.Palette{
+var DefaultPalette = material.Palette{
 	Fg:         rgb(0xd7dade),
-	Bg:         rgb(0x202224),
+	Bg:         rgb(0x2d2e32),
 	ContrastFg: rgb(0xffffff),
 	ContrastBg: rgb(0x202224),
 }

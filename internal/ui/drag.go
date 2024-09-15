@@ -1,42 +1,7 @@
-// package ui
-//
-// import (
-// 	"image/color"
-//
-// 	"gioui.org/io/semantic"
-// 	"gioui.org/layout"
-// 	"gioui.org/op/clip"
-// 	"gioui.org/op/paint"
-// )
-//
-// type DragHandle struct {
-// 	Button     *Clickable
-// 	Background color.NRGBA
-// }
-//
-// func (d DragHandle) Layout(gtx layout.Context, w layout.Widget) layout.Dimensions {
-// 	min := gtx.Constraints.Min
-// 	return d.Button.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-// 		semantic.Button.Add(gtx.Ops)
-// 		return layout.Background{}.Layout(gtx,
-// 			func(gtx layout.Context) layout.Dimensions {
-// 				defer clip.Rect{Max: min}.Push(gtx.Ops).Pop()
-// 				paint.Fill(gtx.Ops, d.Background)
-// 				return layout.Dimensions{Size: gtx.Constraints.Min}
-// 			},
-// 			func(gtx layout.Context) layout.Dimensions {
-// 				return layout.Dimensions{}
-// 			},
-// 		)
-// 	})
-// }
-
 package ui
 
 import (
-	"fmt"
 	"io"
-	"reflect"
 
 	"gioui.org/f32"
 	"gioui.org/gesture"
@@ -108,12 +73,9 @@ func (d *Draggable) Update(gtx layout.Context) (mime string, requested bool) {
 		if !ok {
 			break
 		}
-		fmt.Println(reflect.TypeOf(e).String())
 		if e, ok := e.(transfer.RequestEvent); ok {
 			return e.Type, true
 		}
-		fmt.Println("e: ", e)
-		fmt.Println("d: ", d)
 	}
 	return "", false
 }
@@ -127,4 +89,13 @@ func (d *Draggable) Offer(gtx layout.Context, mime string, data io.ReadCloser) {
 // Pos returns the drag position relative to its initial click position.
 func (d *Draggable) Pos() f32.Point {
 	return d.pos
+}
+
+func (d *Draggable) ResetPos() {
+	d.pos = f32.Point{}
+	d.click = f32.Point{}
+}
+
+func (d *Draggable) Pressed() bool {
+	return d.drag.Pressed()
 }

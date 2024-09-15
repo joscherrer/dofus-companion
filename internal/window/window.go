@@ -1,9 +1,11 @@
 package window
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"regexp"
+	"strings"
 	"syscall"
 	"unsafe"
 
@@ -13,8 +15,10 @@ import (
 )
 
 type Window struct {
-	hwnd windows.Handle
-	p    *process.Process
+	hwnd  windows.Handle
+	p     *process.Process
+	order int
+	title string
 }
 
 var (
@@ -36,6 +40,10 @@ func (w *Window) GetWindowTextLength() (l int, err error) {
 	return
 }
 
+func (w *Window) Handle() windows.Handle {
+	return w.hwnd
+}
+
 func (w *Window) Pid() int32 {
 	return w.p.Pid
 }
@@ -50,9 +58,29 @@ func (w *Window) GetWindowThreadProcessId() (pid uint32, tid uint32, err error) 
 	return
 }
 
+func (w *Window) UpdateTitle() (next string) {
+	next, err := w.GetWindowText()
+	if err != nil {
+		next = "Closing..."
+		fmt.Println(err)
+	}
+	w.title = next
+	return
+}
+
+func (w *Window) TitleChanged() (changed bool) {
+	curr := strings.Clone(w.title)
+	next := w.UpdateTitle()
+	return curr != next
+}
+
 func (w *Window) Title() string {
-	title, _ := w.GetWindowText()
-	return title
+	return w.title
+}
+
+func (w *Window) ProcessName() string {
+	name, _ := w.p.Name()
+	return name
 }
 
 func NewWindow(h windows.Handle) (w Window) {
@@ -105,9 +133,9 @@ func FilterWindows(pattern string) ([]Window, error) {
 }
 
 func (w *Window) UIABringToFront() {
-	win32.UIABringToFront(w.hwnd)
+	win32.UIABringToFront(windows.Handle(w.hwnd))
 }
 
 func (w *Window) BringToFront() {
-	win32.BringToFront(w.hwnd)
+	win32.BringToFront(windows.Handle(w.hwnd))
 }

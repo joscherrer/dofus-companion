@@ -164,9 +164,9 @@ func (b AssetBtnStyle) Layout(gtx layout.Context) layout.Dimensions {
 func Btn(th *material.Theme, button *Clickable, text string, keepState bool) BtnStyle {
 	b := BtnStyle{
 		Text:         text,
-		Color:        th.Palette.ContrastFg,
+		Color:        th.ContrastFg,
 		CornerRadius: 4,
-		Background:   th.Palette.ContrastBg,
+		Background:   th.ContrastBg,
 		TextSize:     th.TextSize * 14.0 / 16.0,
 		Inset: layout.Inset{
 			Top: 10, Bottom: 10,
@@ -182,8 +182,8 @@ func Btn(th *material.Theme, button *Clickable, text string, keepState bool) Btn
 
 func IconBtn(th *material.Theme, button *Clickable, icon *widget.Icon, description string) IconBtnStyle {
 	return IconBtnStyle{
-		Background:  th.Palette.ContrastBg,
-		Color:       th.Palette.ContrastFg,
+		Background:  th.ContrastBg,
+		Color:       th.ContrastFg,
 		Icon:        icon,
 		Size:        22,
 		Inset:       layout.UniformInset(8),
@@ -194,8 +194,8 @@ func IconBtn(th *material.Theme, button *Clickable, icon *widget.Icon, descripti
 
 func AssetBtn(th *material.Theme, button *Clickable, asset *Asset, description string) AssetBtnStyle {
 	return AssetBtnStyle{
-		Background:  th.Palette.ContrastBg,
-		Color:       th.Palette.ContrastFg,
+		Background:  th.ContrastBg,
+		Color:       th.ContrastFg,
 		Asset:       asset,
 		Size:        14,
 		Inset:       layout.UniformInset(12),

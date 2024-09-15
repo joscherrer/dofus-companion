@@ -1,11 +1,6 @@
 package ui
 
 import (
-	"fmt"
-	"io"
-	"strings"
-
-	"gioui.org/io/transfer"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/widget"
@@ -20,9 +15,11 @@ type ClientRowStyle struct {
 	Draggable  *Draggable
 	Theme      *material.Theme
 	index      int
+	Released   bool
 }
 
 func (c *ClientRowStyle) Layout(gtx layout.Context) layout.Dimensions {
+	c.Released = false
 	dragIcon, _ := widget.NewIcon(icons.EditorDragHandle)
 	flex := layout.Flex{
 		Axis:    layout.Horizontal,
@@ -45,26 +42,8 @@ func (c *ClientRowStyle) Layout(gtx layout.Context) layout.Dimensions {
 		return c.Draggable.Layout(gtx, drag, r)
 	}
 	dims := flex.Layout(gtx, layout.Rigid(draggable), layout.Flexed(10, label))
-	if m, ok := c.Draggable.Update(gtx); ok {
-		fmt.Println("Offering data")
-		c.Draggable.Offer(gtx, m, io.NopCloser(strings.NewReader("test")))
+	if _, ok := c.Draggable.Update(gtx); ok {
 		gtx.Execute(op.InvalidateCmd{})
-	}
-
-	// event.Op(gtx.Ops, &c)
-
-	for {
-		ev, ok := gtx.Event(transfer.TargetFilter{Target: &c, Type: "ClientRow"})
-		if !ok {
-			break
-		}
-		switch e := ev.(type) {
-		case transfer.DataEvent:
-			data := e.Open()
-			defer data.Close()
-			content, _ := io.ReadAll(data)
-			fmt.Println(string(content))
-		}
 	}
 
 	return dims

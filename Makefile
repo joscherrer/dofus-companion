@@ -1,0 +1,2 @@
+build:
+	gogio -target windows .
